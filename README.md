@@ -23,6 +23,15 @@ If run without a file name, you will be introduced into an interactive shell whe
 
 _NOTE_: Only basic expressions, selections and iterations have been implemented. Further changes could be implemented at any time.
 
+### Notes on the Meta-Syntax Notation
+
+I originally attempted to mimic [Backus-Naur Form](https://en.wikipedia.org/wiki/Backus-Naur_Form), while at the same time extending some functionality.
+A reference:
+
+    stmt1 | stmt2   = stmt1 or stmt2
+    [statement]*    = statement 0, 1 or more times
+    statement?      = optional statement
+
 All programs start with a PROGRAM declaration, followed by a statment list:
 
     program         : program_decl begin_stmt [statement]* end_stmt
@@ -82,21 +91,25 @@ Selection statements conditionally execute other statements based upon a express
 Iteration statements execute the same set of statements over and over conditionally or for a certain number of times.
 
     iteration_stmt  : while_stmt [statement]* repeat_stmt
-                    : for_stmt [statement]* repeat_stmt
+                    | for_stmt [statement]* repeat_stmt
+                    ;
 
     while_stmt      : 'WHILE' expression then_kw? stmt_end
                     ;
 
-    for_stmt        : 'FOR' assignent_stmt
+    for_stmt        : 'FOR' assignent_stmt 'TO' expression then_kw? stmt_end
+                    ;
 
     repeat_stmt     : 'REPEAT' stmt_end
                     | 'NEXT' stmt_end
                     | end_stmt
+                    ;
 
 Jump statements change the control flow unconditionally and can be used to terminate iteration loops prematurely.
 _NOTE_: Not implemented yet.
 
-    jump_stmt       : ;
+    jump_stmt       : 'BREAK' | 'CONTINUE'
+                    ;
 
 I/O statements are the methods of input and output that pseudo programs have available to them.
 
@@ -105,6 +118,7 @@ I/O statements are the methods of input and output that pseudo programs have ava
                     ;
 
 Expressions are very similar to those in C, including the same operators and identical order of operations.
+I've decided not to recreate the C syntax here, as it's (mostly) intutive and similar to how ordinary math works.
 There are a few differences:
 
 * Ternary operators have not been implemented.
