@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from token import Token
+from .token import Token
 
 PRE_DEFINED = {
     'TRUE': Token('number', 1),
@@ -21,9 +21,9 @@ class Context:
     def __init__(self):
         self.variables = {}
         self.variables.update(PRE_DEFINED)
-        
+
     def get_var(self, name):
-        return self.variables[name]
-        
+        return self.variables.get(name)
+
     def set_var(self, name, value):
         self.variables[name] = value

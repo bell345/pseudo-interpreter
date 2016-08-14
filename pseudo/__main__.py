@@ -3,9 +3,10 @@
 import sys
 import argparse
 
-from token import FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
-from parse import pseudo_program
-from context import Context
+from .version import APP_NAME, APP_VERSION
+from .token import FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
+from .parse import pseudo_program
+from .context import Context
 
 source = """
 PROGRAM rectangle_area_and_perimeter
@@ -30,13 +31,13 @@ def parse_file(fp):
 
     except ParseError as e:
         print("Parse failed: {}".format(e))
-        
+
     except PseudoRuntimeError as e:
         print("Runtime error: {}".format(e))
-        
+
     #except Exception as e:
     #    print("Parser error: {}".format(e))
-    
+
 def repl():
     parse_ctx = REPLTokeniser()
     eval_ctx = Context()
@@ -44,18 +45,38 @@ def repl():
         try:
             prog = pseudo_program(parse_ctx)
             prog.eval(eval_ctx)
-            
+
         except (KeyboardInterrupt, EOFError):
             sys.exit(0)
 
         except ParseError as e:
             print("Parse failed: {}".format(e))
-            
+            parse_ctx.reset()
+
         except PseudoRuntimeError as e:
             print("Runtime error: {}".format(e))
+
+def main():
+
+    parser = argparse.ArgumentParser(prog=APP_NAME,
+            description="An interpreter for simple PASCAL-like pseudo code.",
+            epilog="(C) Thomas Bell 2016, MIT License.")
+    parser.add_argument("--version", action="version", version=APP_VERSION)
+
+    parser.add_argument("input_file", type=argparse.FileType('r'), nargs="?",
+            help="Input source file to be interpreted.")
+
+    args = parser.parse_args()
+
+    if args.input_file:
+        parse_file(args.input_file)
+
+    else:
+        repl()
 
 if __name__ == "__main__":
     """from io import StringIO
     buf = StringIO(source)
     parse_file(buf)"""
-    repl()
+    #repl()
+    main()
