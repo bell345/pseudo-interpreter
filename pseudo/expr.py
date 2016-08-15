@@ -75,7 +75,7 @@ class UnaryExpression(Expression):
         arg = Expression._get_arg(ctx, self.argument)
 
         if arg.type == op_type:
-            return Token(op_type, func(arg))
+            return Token(op_type, func(arg.value))
 
         return None
 
