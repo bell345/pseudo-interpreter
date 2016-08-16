@@ -5,15 +5,18 @@ from .expr import UnaryExpression, BinaryExpression, KeywordExpression, Variable
 from .code import IfStatement, ForStatement, WhileStatement, PseudoProgram, AssignmentStatement
 
 def skip_eol(ctx):
+    res = ctx.raw_context()
     token = ctx.peek_token()
     while token == Token('eol', ''):
         ctx.token()
+        res = ctx.raw_context()
         token = ctx.peek_token()
 
-def pseudo_program(ctx):
-    skip_eol(ctx)
+    return res
 
-    with ctx.ready_context():
+def pseudo_program(ctx):
+
+    with ctx.ready_context(skip_eol(ctx)):
         token = ctx.peek_token()
         if token == Token('keyword', 'PROGRAM'):
             ctx.token()
@@ -24,9 +27,7 @@ def pseudo_program(ctx):
                     raise ParseExpected(ctx, 'program name')
 
             with ctx.nest():
-                skip_eol(ctx)
-
-                with ctx.ready_context():
+                with ctx.ready_context(skip_eol(ctx)):
                     begin_kw = ctx.token()
                     if begin_kw != Token('keyword', 'BEGIN'):
                         raise ParseExpected(ctx, 'BEGIN')
@@ -222,10 +223,11 @@ def conditional_expr(ctx):
     raise ParseExpected(ctx, 'conditional')
 
 def unary_expr(ctx):
-    op = ctx.peek_token()
-    if op.type != 'operator' or op.value not in UNARY_OPERATORS:
-        return primary_expr(ctx)
-    ctx.token()
+    with ctx.ready_context():
+        op = ctx.peek_token()
+        if op.type != 'operator' or op.value not in UNARY_OPERATORS:
+            return primary_expr(ctx)
+        ctx.token()
 
     with ctx.ready_context():
         arg = unary_expr(ctx)
@@ -235,17 +237,16 @@ def unary_expr(ctx):
     return UnaryExpression(op, arg).assoc(ctx)
 
 def primary_expr(ctx):
-    with ctx.ready_context():
-        res = ctx.token()
-        #print("Got primary token: {}".format(res))
-        if res.type in ('number', 'string'):
-            return res
+    res = ctx.token()
+    #print("Got primary token: {}".format(res))
+    if res.type in ('number', 'string'):
+        return res
 
-        elif res.type == 'identifier':
-            return VariableReference(res.value).assoc(ctx)
+    elif res.type == 'identifier':
+        return VariableReference(res.value).assoc(ctx)
 
-        elif res != Token('symbol', '('):
-            raise ParseExpected(ctx, 'expression', res)
+    elif res != Token('symbol', '('):
+        raise ParseExpected(ctx, 'expression', res)
 
     res = expression(ctx)
 

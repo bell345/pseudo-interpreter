@@ -39,6 +39,10 @@ def parse_file(fp):
     #    print("Parser error: {}".format(e))
 
 def repl():
+    print("{} version {}".format(APP_NAME, APP_VERSION))
+    print("(C) Thomas Bell 2016, MIT License.")
+    print("Press Ctrl-C to exit.")
+
     parse_ctx = REPLTokeniser()
     eval_ctx = Context()
     while True:

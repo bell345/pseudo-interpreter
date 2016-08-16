@@ -110,26 +110,33 @@ class Tokeniser:
         self.level -= 1
 
     @contextmanager
-    def ready_context(self):
+    def ready_context(self, ctx=None):
+        if not ctx:
+            ctx = self.row, self.col
+
         idx = len(self._ready_ctx)
-        self._ready_ctx.append(self.get_context())
+        self._ready_ctx.append(ctx)
 
         yield
 
         while len(self._ready_ctx) > idx:
             self._ready_ctx.pop()
 
-    def get_context(self):
-        if len(self._ready_ctx) > 0:
-            return self._ready_ctx.pop()
+    def raw_context(self):
+        return self.row, self.col
 
-        ctx  = ""
-        row = self.row
-        col = self.col
+    def get_context(self):
+        ctx = ""
+
+        if len(self._ready_ctx) > 0:
+            row, col = self._ready_ctx.pop()
+        else:
+            row = self.row
+            col = self.col
 
         if row > len(self.lines):
-            row = self.row-1
-            col = len(self.lines[row-1])
+            row = row-1
+            col = len(self.lines[row-1])+1
 
         if row < 1:
             return "File {}: \n".format(self.name)
@@ -182,6 +189,39 @@ class Tokeniser:
 
         return res[:-1]
 
+    def _parse_string_escapes(self, string):
+        i = 0
+        res = ""
+        escapes = { 'r': '\r', 'n': '\n', "'": "'", '"': '"', '\\': '\\' }
+        try:
+            while i < len(string):
+                if string[i] == '\\' and (i+1) < len(string):
+                    i += 1
+                    c = string[i]
+                    if c in escapes:
+                        res += escapes[c]
+
+                    elif c == 'x' and (i+2) < len(string):
+                        res += chr(int(string[i+1 : i+3], 16))
+                        i += 2
+
+                    elif c == 'u' and (i+4) < len(string):
+                        res += chr(int(string[i+1 : i+5], 16))
+                        i += 4
+
+                    else:
+                        res += '\\' + c
+
+                else:
+                    res += string[i]
+
+                i += 1
+
+            return res
+
+        except ValueError as e:
+            raise ParseError(self, 'Invalid character escape')
+
     def __iter__(self):
         c = self.peek()
         while c:
@@ -195,7 +235,7 @@ class Tokeniser:
                 self.consume(while_re=WHITESPACE_RE)
 
             elif c in ('"', "'"):
-                string = str(self.consume(until_re=STRING_RE)[1:])
+                string = self._parse_string_escapes(self.consume(until_re=STRING_RE)[1:])
                 self.char() # consume end of string
                 yield Token('string', string)
 
@@ -209,7 +249,7 @@ class Tokeniser:
             elif IDENTIFIER_RE.match(c):
                 ident = self.consume(while_re=IDENTIFIER_RE)
                 if ident.upper() in KEYWORDS:
-                    yield Token('keyword', ident)
+                    yield Token('keyword', ident.upper())
                 else:
                     yield Token('identifier', ident)
 
