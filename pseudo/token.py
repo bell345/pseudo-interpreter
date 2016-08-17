@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 WHITESPACE_RE = re.compile(r'[ \r\n\v\t]+')
 IDENTIFIER_RE = re.compile(r'[a-zA-Z_][a-zA-Z0-9_]*')
-NUMBER_RE = re.compile(r'[0-9]+|[0-9]*\.[0-9]+')
+NUMBER_RE = re.compile(r'[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+')
 STRING_RE = re.compile(r'"([^"\\]|\\.)*"|\'([^\'\\]|\\.)*\'')
 ENDLINE_RE = re.compile(r'(;|\r?\n)')
 OPERATOR_RE = re.compile(r'(==|<-|<=|>=|!=|n?eq|and|or|[!+\-*/<>=])')
@@ -40,7 +40,7 @@ OR_OPERATORS = ('||', 'or')
 
 ASSIGN_OPERATORS = (':=', '=', '<-')
 
-KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT"
+KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT", "BREAK", "CONTINUE", "RETURN", "RUN"
 
 class ParseError(Exception):
     def __init__(self, ctx, msg):
@@ -61,7 +61,8 @@ class ParseExpected(ParseError):
 
 class PseudoRuntimeError(Exception):
     def __init__(self, ctx, msg):
-        msg = ctx + msg
+        if ctx:
+            msg = ctx + msg
         super().__init__(msg)
 
 class PseudoTypeError(PseudoRuntimeError):
@@ -71,13 +72,20 @@ class PseudoNameError(PseudoRuntimeError):
     pass
 
 class PseudoFlowControl(Exception):
-    pass
+    def __init__(self, ctx):
+        super().__init__(ctx)
+        self.context = ctx
 
 class PseudoBreak(PseudoFlowControl):
     pass
 
 class PseudoContinue(PseudoFlowControl):
     pass
+
+class PseudoReturn(PseudoFlowControl):
+    def __init__(self, ctx, ret):
+        super().__init__(ctx)
+        self.value = ret
 
 Token = namedtuple('Token', "type, value")
 

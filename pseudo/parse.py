@@ -2,7 +2,7 @@
 
 from .token import *
 from .expr import UnaryExpression, BinaryExpression, KeywordExpression, VariableReference
-from .code import IfStatement, ForStatement, WhileStatement, PseudoProgram, AssignmentStatement
+from .code import *
 
 def skip_eol(ctx):
     res = ctx.raw_context()
@@ -14,30 +14,62 @@ def skip_eol(ctx):
 
     return res
 
-def pseudo_program(ctx):
-
+def pseudo_code_element(ctx):
     with ctx.ready_context(skip_eol(ctx)):
-        token = ctx.peek_token()
-        if token == Token('keyword', 'PROGRAM'):
-            ctx.token()
+        res = pseudo_program(ctx)
+        if not res: res = statement(ctx)
 
-            with ctx.ready_context():
-                ident = ctx.token()
-                if ident is None or ident.type != 'identifier':
-                    raise ParseExpected(ctx, 'program name')
+        return res
 
-            with ctx.nest():
+def pseudo_program(ctx):
+    token = ctx.peek_token()
+    if token == Token('keyword', 'PROGRAM'):
+        ctx.token()
+
+        with ctx.ready_context():
+            ident = ctx.token()
+            if ident is None or ident.type != 'identifier':
+                raise ParseExpected(ctx, 'program name', ident)
+
+        with ctx.nest():
+            with ctx.ready_context(skip_eol(ctx)):
+                begin_kw = ctx.token()
+                if begin_kw != Token('keyword', 'BEGIN'):
+                    raise ParseExpected(ctx, 'BEGIN', begin_kw)
+
+            statements = statement_list(ctx)
+
+        return PseudoProgram(ident.value, statements).assoc(ctx)
+
+    elif token == Token('keyword', 'MODULE'):
+        ctx.token()
+
+        with ctx.ready_context():
+            ident = ctx.token()
+            if ident is None or ident.type != 'identifier':
+                raise ParseExpected(ctx, 'program name', ident)
+
+        with ctx.nest():
+            params = []
+            while True:
                 with ctx.ready_context(skip_eol(ctx)):
-                    begin_kw = ctx.token()
-                    if begin_kw != Token('keyword', 'BEGIN'):
-                        raise ParseExpected(ctx, 'BEGIN')
+                    kw = ctx.token()
+                    if kw == Token('keyword', 'PARAM'):
+                        name = ctx.token()
+                        if name is None or name.type != 'identifier':
+                            raise ParseExpected(ctx, 'parameter name', name)
 
-                statements = statement_list(ctx)
+                        params.append(name.value)
 
-            return PseudoProgram(ident.value, statements).assoc(ctx)
+                    elif kw == Token('keyword', 'BEGIN'):
+                        break
 
-        else:
-            raise ParseExpected(ctx, 'PROGRAM')
+                    else:
+                        raise ParseExpected(ctx, 'PARAM or BEGIN', kw)
+
+            statements = statement_list(ctx)
+
+        return PseudoModule(ident.value, params, statements)
 
 def statement_list(ctx, end_kw='END', consume_end=True):
     if isinstance(end_kw, str):
@@ -87,7 +119,7 @@ def statement(ctx):
     with ctx.ready_context():
         eol = ctx.token()
         if eol != Token('eol', ''):
-            raise ParseExpected(ctx, 'end of statement')
+            raise ParseExpected(ctx, 'end of statement', eol)
         else:
             pass
             #print("A statement has been born: {}".format(
@@ -154,7 +186,7 @@ def iteration(ctx):
         with ctx.ready_context():
             to_kw = ctx.token()
             if to_kw != Token('keyword', 'TO'):
-                raise ParseExpected(ctx, 'TO')
+                raise ParseExpected(ctx, 'TO', to_kw)
 
         with ctx.ready_context():
             end_expr = conditional_expr(ctx)
@@ -171,6 +203,15 @@ def iteration(ctx):
 
 def jump(ctx):
     jump_kw = ctx.peek_token()
+    if jump_kw == Token('keyword', 'BREAK'):
+        ctx.token()
+
+        return BreakStatement()
+
+    elif jump_kw == Token('keyword', 'CONTINUE'):
+        ctx.token()
+
+        return ContinueStatement()
 
 def io_statement(ctx):
     io_kw = ctx.peek_token()
@@ -180,7 +221,7 @@ def io_statement(ctx):
         with ctx.ready_context():
             ref = expression(ctx)
             if not isinstance(ref, VariableReference):
-                raise ParseExpected(ctx, 'variable reference')
+                raise ParseExpected(ctx, 'variable reference', ref)
 
         return KeywordExpression(io_kw, ref).assoc(ctx)
 

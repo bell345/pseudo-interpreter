@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-from .token import Token
+from .token import Token, PseudoRuntimeError
 
 PRE_DEFINED = {
     'TRUE': Token('number', 1),
     'true': Token('number', 1),
     'True': Token('number', 1),
     'FALSE': Token('number', 0),
-    'false': Token('number', 1),
-    'False': Token('number', 1),
+    'false': Token('number', 0),
+    'False': Token('number', 0),
     'NULL': Token('symbol', None),
     'null': Token('symbol', None),
     'None': Token('symbol', None),
@@ -26,4 +26,7 @@ class Context:
         return self.variables.get(name)
 
     def set_var(self, name, value):
+        if name in PRE_DEFINED:
+            raise PseudoRuntimeError(None, "Cannot reassign pre-defined variable {}".format(name))
+
         self.variables[name] = value

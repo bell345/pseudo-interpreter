@@ -28,9 +28,50 @@ _NOTE_: Only basic expressions, selections and iterations have been implemented.
 I originally attempted to mimic [Backus-Naur Form](https://en.wikipedia.org/wiki/Backus-Naur_Form), while at the same time extending some functionality.
 A reference:
 
+    > xyz <         = the character/sequence 'xyz'
+    'xyz'           = the character/sequence 'xyz'
+    a : b c ;       = a is defined as b followed by c, where b and c are separated by whitespace
     stmt1 | stmt2   = stmt1 or stmt2
+    ['a' - 'z']     = any character between 'a' and 'z', including 'a' and 'z'
     [statement]*    = statement 0, 1 or more times
+    [statement]+    = statement at least once
     statement?      = optional statement
+
+The basic units of syntax are as follows:
+
+    digit           : ['0' - '9']
+                    ;
+
+    letter          : ['A' - 'Z'] | ['a' - 'z']
+                    ;
+
+    hex_letter      : ['A' - 'F'] | ['a' - 'f'] | ['0' - '9']
+                    ;
+
+    ident_begin     : letter | '_'
+                    ;
+
+    ident_symbol    : ident_begin | ['0' - '9']
+                    ;
+
+    identifier      : ident_begin [ident_symbol]*
+                    ;
+
+    string_char     : (any character not including > \ <, > " < or > ' < )
+                    | '\r' | '\n'
+                    | '\x' hex_letter hex_letter
+                    | '\u' hex_letter hex_letter hex_letter hex_letter
+                    | > \\ <
+                    | > \' <
+                    | > \" <
+                    ;
+
+    string          : > " < [string_char]* > " <
+                    | > ' < [string_char]* > ' <
+                    ;
+
+    number          : [digit]* ['.']? [digit]+
+                    ;
 
 All programs start with a PROGRAM declaration, followed by a statment list:
 
@@ -50,6 +91,15 @@ All programs start with a PROGRAM declaration, followed by a statment list:
 
     end_stmt        : 'END' stmt_end
                     | 'END' identifier stmt_end
+                    ;
+
+Modules are reusable blocks of code that can return different values based upon a set of parameters.
+_NOTE_: Modules cannot yet be called.
+
+    module          : module_decl [param_decl]* begin_stmt [statement]* end_stmt
+                    ;
+
+    param_decl      : 'PARAM' identifier stmt_end
                     ;
 
 Statments can be either assignment, selection, iteration, jump or I/O statments:

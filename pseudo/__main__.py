@@ -5,7 +5,7 @@ import argparse
 
 from .version import APP_NAME, APP_VERSION
 from .token import FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
-from .parse import pseudo_program
+from .parse import pseudo_code_element
 from .context import Context
 
 source = """
@@ -26,7 +26,7 @@ def parse_file(fp):
     parse_ctx = FileTokeniser(fp)
     eval_ctx = Context()
     try:
-        prog = pseudo_program(parse_ctx)
+        prog = pseudo_code_element(parse_ctx)
         prog.eval(eval_ctx)
 
     except ParseError as e:
@@ -47,7 +47,7 @@ def repl():
     eval_ctx = Context()
     while True:
         try:
-            prog = pseudo_program(parse_ctx)
+            prog = pseudo_code_element(parse_ctx)
             prog.eval(eval_ctx)
 
         except (KeyboardInterrupt, EOFError):
