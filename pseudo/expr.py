@@ -17,7 +17,7 @@ class Expression:
             res = arg.eval(ctx)
 
         if res is None:
-            raise PseudoRuntimeError(self.context, "Invalid expression argument")
+            raise PseudoRuntimeError(None, "Invalid expression argument")
 
         return res
 
@@ -51,6 +51,19 @@ class VariableReference(Expression):
 
     def set(self, ctx, value):
         ctx.set_var(self.name, value)
+
+class ModuleReference(Expression):
+    def __init__(self, name, args):
+        super().__init__()
+        self.name = name
+        self.args = args
+
+    def eval(self, ctx):
+        res = ctx.get_module(self.name)
+        if res is None:
+            raise PseudoNameError(self.context, "Module {} is undefined or is not a module".format(self.name))
+
+        return res.call(ctx, self.args)
 
 class KeywordReference(Expression):
     def __init__(self, name):
@@ -122,17 +135,25 @@ class BinaryExpression(Expression):
         self.argument2 = Expression._normalise_arg(arg2)
 
     def _do_operation(self, ctx, op_type, func):
+        if isinstance(op_type, str):
+            op_type = (op_type,)
+
         arg1 = Expression._get_arg(ctx, self.argument1)
         arg2 = Expression._get_arg(ctx, self.argument2)
 
-        if arg1.type == arg2.type == op_type:
-            res = func(arg1.value, arg2.value)
-            if isinstance(res, str):
-                return Token('string', res)
-            else:
-                return Token('number', res)
+        if arg1.type != arg2.type:
+            return None
 
-        return None
+        if arg1.type not in op_type:
+            return None
+
+        res = func(arg1.value, arg2.value)
+        if isinstance(res, str):
+            return Token('string', res)
+        elif res is None:
+            return Token('symbol', None)
+        else:
+            return Token('number', res)
 
     def eval(self, ctx):
         #print("Eval with op {}:".format(self.operation))
@@ -140,8 +161,7 @@ class BinaryExpression(Expression):
         #print("Arg2: {}".format(self.argument2))
         res = None
         if self.operation in ADD_OPERATORS:
-            res = self._do_operation(ctx, 'number', lambda a,b: a + b)
-            if not res: res = self._do_operation(ctx, 'string', lambda a,b: a + b)
+            res = self._do_operation(ctx, ('number', 'string'), lambda a,b: a + b)
 
         elif self.operation in SUB_OPERATORS:
             res = self._do_operation(ctx, 'number', lambda a,b: a - b)
@@ -156,12 +176,10 @@ class BinaryExpression(Expression):
                 raise PseudoRuntimeError(self.context, 'Cannot divide by zero')
 
         elif self.operation in EQ_OPERATORS:
-            res = self._do_operation(ctx, 'number', lambda a,b: int(a == b))
-            if not res: res = self._do_operation(ctx, 'string', lambda a,b: int(a == b))
+            res = self._do_operation(ctx, ('number', 'string', 'symbol'), lambda a,b: int(a == b))
 
         elif self.operation in NEQ_OPERATORS:
-            res = self._do_operation(ctx, 'number', lambda a,b: int(a != b))
-            if not res: res = self._do_operation(ctx, 'string', lambda a,b: int(a != b))
+            res = self._do_operation(ctx, ('number', 'string', 'symbol'), lambda a,b: int(a != b))
 
         elif self.operation in LT_OPERATORS:
             res = self._do_operation(ctx, 'number', lambda a,b: int(a < b))
@@ -190,7 +208,21 @@ class KeywordExpression(Expression):
         self.arguments = list(map(Expression._normalise_arg, args))
 
     def eval(self, ctx):
-        if self.keyword in ('OUTPUT', 'PRINT'):
+        res = Token('symbol', None)
+        if self.keyword == "RUN":
+            prog_name = self.arguments[0]
+
+            if not isinstance(prog_name, VariableReference):
+                raise PseudoTypeError(self.context, "Run target not a program reference")
+
+            prog = ctx.get_program(prog_name.name)
+            if not prog:
+                raise PseudoNameError(self.context,
+                        "Program {} is not defined or is not a program".format(prog_name.name))
+
+            res = prog.eval(ctx)
+
+        elif self.keyword in ('OUTPUT', 'PRINT'):
             for arg in self.arguments:
                 arg = Expression._get_arg(ctx, arg)
                 print(arg.value, end=' ')
@@ -240,5 +272,8 @@ class KeywordExpression(Expression):
                     value = Token('string', value)
 
             target.set(ctx, value)
+            res = value
+
+        return res
 
             

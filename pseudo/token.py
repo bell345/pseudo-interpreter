@@ -41,7 +41,7 @@ OR_OPERATORS = ('||', 'or')
 
 ASSIGN_OPERATORS = (':=', '=', '<-')
 
-KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT", "BREAK", "CONTINUE", "RETURN", "RUN", "IS", "NOT", "INTEGER", "FLOAT", "REAL", "STRING", "INT", "NUMBER"
+KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT", "BREAK", "CONTINUE", "RETURN", "RUN", "IS", "NOT", "INTEGER", "FLOAT", "REAL", "STRING", "INT", "NUMBER", "PARAM"
 
 class ParseError(Exception):
     def __init__(self, ctx, msg):
@@ -100,23 +100,18 @@ def keyword_eq(token1, token2):
 
 class Tokeniser:
     def __init__(self, name):
-        self.lines = []
-        self.row = 1
-        self.col = 1
-        self.level = 1
         self.name = name
-        self.tokeniser = iter(self)
-        self._peek = None
-        self._peek_token = None
-        self._ready_ctx = []
+        self.reset()
 
     def reset(self):
         self.lines = []
         self.row = 1
         self.col = 1
         self.level = 1
+        self.tokeniser = iter(self)
         self._peek = None
         self._peek_token = None
+        self._ready_ctx = []
 
     @contextmanager
     def nest(self):

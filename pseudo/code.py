@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import traceback
+from inspect import signature
+
 from .token import Token, PseudoRuntimeError, PseudoTypeError, PseudoBreak, PseudoContinue, PseudoReturn
 from .expr import Expression, VariableReference
 from .context import Context
@@ -124,17 +127,21 @@ class ContinueStatement(Statement):
 
 class ReturnStatement(Statement):
     def __init__(self, ret):
-        self.value = ret
+        super().__init__()
+        self.value = Expression._normalise_arg(ret)
 
     def eval(self, ctx):
-        raise PseudoReturn(self.context, self.value)
+        raise PseudoReturn(self.context, Expression._get_arg(ctx, self.value))
 
 class PseudoProgram(Statement):
     def __init__(self, prog_name, stmt_list):
+        super().__init__()
         self.name = prog_name
         self.stmt_list = stmt_list
 
     def eval(self, ctx):
+        ctx = ctx.child_context()
+
         res = Token('symbol', None)
         try:
             for stmt in self.stmt_list:
@@ -153,6 +160,7 @@ class PseudoProgram(Statement):
 
 class PseudoModule(Statement):
     def __init__(self, name, params, stmt_list):
+        super().__init__()
         self.name = name
         self.params = params
         self.stmt_list = stmt_list
@@ -160,8 +168,8 @@ class PseudoModule(Statement):
     def eval(self, ctx):
         raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
 
-    def call(self, args):
-        ctx = Context()
+    def call(self, ctx, args):
+        ctx = ctx.child_context()
         if len(args) != len(self.params):
             raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
                     len(self.params), len(args)))
@@ -184,3 +192,36 @@ class PseudoModule(Statement):
             return ret.value
 
         return res
+
+class PseudoBinding(Statement):
+    def __init__(self, name, func):
+        super().__init__()
+
+        self.name = name
+        self.func = func
+
+        self.params = [p.name for p in signature(func).parameters.values()]
+
+    def eval(self, ctx):
+        raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
+
+    def call(self, ctx, args):
+        ctx = ctx.child_context()
+        if len(args) != len(self.params):
+            raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
+                    len(self.params), len(args)))
+
+        res = Token('symbol', None)
+        try:
+            res = self.func(*[Expression._get_arg(arg) for arg in args])
+            if isinstance(res, int) or isinstance(res, float):
+                res = Token('number', res)
+            elif res is None:
+                res = Token('symbol', None)
+            else:
+                res = Token('string', str(res))
+
+            return res
+
+        except Exception as e:
+            raise PseudoRuntimeError(self.context, "Exception in bound module '{}'".format(self.name)) from e

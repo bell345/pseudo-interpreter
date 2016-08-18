@@ -4,7 +4,8 @@ import sys
 import argparse
 
 from .version import APP_NAME, APP_VERSION
-from .token import FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
+from .token import Token, FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
+from .code import PseudoModule, PseudoProgram
 from .parse import pseudo_code_element
 from .context import Context
 
@@ -22,43 +23,92 @@ BEGIN
 END
 """
 
+def parse(parse_ctx):
+    global_ctx = Context()
+    while True:
+        try:
+            el = pseudo_code_element(parse_ctx)
+            if isinstance(el, PseudoModule):
+                global_ctx.def_module(el.name, el)
+
+            elif isinstance(el, PseudoProgram):
+                global_ctx.def_program(el.name, el)
+
+            else:
+                res = el.eval(global_ctx)
+                if res is not None and res != Token('symbol', None):
+                    print(res.value)
+
+        except KeyboardInterrupt as e:
+            if parse_ctx.level > 1:
+                print("")
+                parse_ctx.reset()
+            else:
+                print("KeyboardInterrupt")
+                sys.exit(0)
+
+        except EOFError as e:
+            break
+
+        except ParseError as e:
+            print("Parse failed: {}".format(e))
+            parse_ctx.reset()
+            #sys.exit(1)
+
+        except PseudoRuntimeError as e:
+            print("Runtime error: {}".format(e))
+            #sys.exit(1)
+
+    return global_ctx
+
 def parse_file(fp):
-    parse_ctx = FileTokeniser(fp)
-    eval_ctx = Context()
-    try:
-        prog = pseudo_code_element(parse_ctx)
-        prog.eval(eval_ctx)
+    ctx = parse(FileTokeniser(fp))
+    if len(ctx.programs) == 0:
+        return
 
-    except ParseError as e:
-        print("Parse failed: {}".format(e))
+    elif len(ctx.programs) == 1:
+        try:
+            for prog in ctx.programs.values():
+                prog.eval(ctx)
 
-    except PseudoRuntimeError as e:
-        print("Runtime error: {}".format(e))
+        except EOFError as e:
+            pass
 
-    #except Exception as e:
-    #    print("Parser error: {}".format(e))
+        except ParseError as e:
+            print("Parse failed: {}".format(e))
+            parse_ctx.reset()
+            #sys.exit(1)
+
+        except PseudoRuntimeError as e:
+            print("Runtime error: {}".format(e))
+            #sys.exit(1)
+
+    elif 'main' not in ctx.programs:
+        print("Your code file does not have a main entry point.")
+        while True:
+            print("Select a program from the list below (or enter nothing to exit):")
+            keys = ctx.programs.keys()
+            for name in enumerate(keys):
+                print(name)
+
+            name = input(": ")
+            if not name:
+                break
+
+            elif name not in keys:
+                print("The program you entered has not been defined.")
+                continue
+
+            else:
+                prog = ctx.get_program(name)
+                if prog: prog.eval(ctx)
 
 def repl():
     print("{} version {}".format(APP_NAME, APP_VERSION))
     print("(C) Thomas Bell 2016, MIT License.")
     print("Press Ctrl-C to exit.")
 
-    parse_ctx = REPLTokeniser()
-    eval_ctx = Context()
-    while True:
-        try:
-            prog = pseudo_code_element(parse_ctx)
-            prog.eval(eval_ctx)
-
-        except (KeyboardInterrupt, EOFError):
-            sys.exit(0)
-
-        except ParseError as e:
-            print("Parse failed: {}".format(e))
-            parse_ctx.reset()
-
-        except PseudoRuntimeError as e:
-            print("Runtime error: {}".format(e))
+    ctx = parse(REPLTokeniser())
 
 def main():
 

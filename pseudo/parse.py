@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from .token import *
-from .expr import UnaryExpression, BinaryExpression, KeywordExpression, VariableReference
+from .expr import UnaryExpression, BinaryExpression, KeywordExpression, VariableReference, ModuleReference
 from .code import *
 
 def skip_eol(ctx):
@@ -19,7 +19,7 @@ def pseudo_code_element(ctx):
         res = pseudo_program(ctx)
         if not res: res = statement(ctx)
 
-        return res
+        return res.assoc(ctx)
 
 def pseudo_program(ctx):
     token = ctx.peek_token()
@@ -69,7 +69,7 @@ def pseudo_program(ctx):
 
             statements = statement_list(ctx)
 
-        return PseudoModule(ident.value, params, statements)
+        return PseudoModule(ident.value, params, statements).assoc(ctx)
 
 def statement_list(ctx, end_kw='END', consume_end=True):
     if isinstance(end_kw, str):
@@ -107,7 +107,7 @@ def statement_list(ctx, end_kw='END', consume_end=True):
 
     return statements
 
-def statement(ctx):
+def statement(ctx, no_eol=False):
     skip_eol(ctx)
 
     res = assignment_stmt(ctx)
@@ -115,16 +115,18 @@ def statement(ctx):
     if not res: res = iteration(ctx)
     if not res: res = jump(ctx)
     if not res: res = io_statement(ctx)
+    if not res: res = expression(ctx)
 
-    with ctx.ready_context():
-        eol = ctx.token()
-        if eol != Token('eol', ''):
-            raise ParseExpected(ctx, 'end of statement', eol)
-        else:
-            pass
-            #print("A statement has been born: {}".format(
-            #    type(res).__name__
-            #))
+    if no_eol:
+        with ctx.ready_context():
+            eol = ctx.token()
+            if eol != Token('eol', ''):
+                raise ParseExpected(ctx, 'end of statement', eol)
+            else:
+                pass
+                #print("A statement has been born: {}".format(
+                #    type(res).__name__
+                #))
 
     return res
 
@@ -148,12 +150,17 @@ def selection(ctx):
         else_kw = ctx.peek_token()
         if else_kw == Token('keyword', 'ELSE'):
             ctx.token() # consume peek
-            else_list = statement_list(ctx)
+            if ctx.peek_token() == Token('keyword', 'IF'):
+                # if is left unconsumed
+                else_list = [statement(ctx, no_eol=True)]
+
+            else:
+                else_list = statement_list(ctx)
 
         elif else_kw == Token('keyword', 'END'):
             ctx.token() # consume END peek
             if ctx.peek_token() == Token('keyword', 'IF'):
-                ctx.token() # consume END IF keep
+                ctx.token() # consume END IF peek
 
         return IfStatement(cond, stmt_list, else_list).assoc(ctx)
 
@@ -213,8 +220,28 @@ def jump(ctx):
 
         return ContinueStatement()
 
+    elif jump_kw == Token('keyword', 'RETURN'):
+        ctx.token()
+
+        with ctx.ready_context():
+            ret = expression(ctx)
+            if not ret:
+                raise ParseExpected(ctx, 'expression')
+
+        return ReturnStatement(ret)
+
 def io_statement(ctx):
     io_kw = ctx.peek_token()
+    if io_kw == Token('keyword', 'RUN'):
+        ctx.token()
+
+        with ctx.ready_context():
+            ref = expression(ctx)
+            if not isinstance(ref, VariableReference):
+                raise ParseExpected(ctx, 'module reference', ref)
+
+        return KeywordExpression(io_kw, ref).assoc(ctx)
+
     if io_kw == Token('keyword', 'INPUT'):
         ctx.token()
 
@@ -234,12 +261,9 @@ def io_statement(ctx):
     elif io_kw.type == 'keyword' and io_kw.value in ('OUTPUT', 'PRINT'):
         ctx.token()
 
-        with ctx.ready_context():
-            expr = expression(ctx)
-            if not expr:
-                raise ParseExpected(ctx, 'expression')
+        args = argument_list(ctx)
 
-        return KeywordExpression(io_kw, expr).assoc(ctx)
+        return KeywordExpression(io_kw, *args).assoc(ctx)
 
 def assignment_stmt(ctx):
     target = ctx.peek_token()
@@ -273,7 +297,7 @@ def unary_expr(ctx):
     with ctx.ready_context():
         op = ctx.peek_token()
         if op.type != 'operator' or op.value not in UNARY_OPERATORS:
-            return primary_expr(ctx)
+            return postfix_expr(ctx)
         ctx.token()
 
     with ctx.ready_context():
@@ -282,6 +306,56 @@ def unary_expr(ctx):
             raise ParseExpected(ctx, 'expression')
 
     return UnaryExpression(op, arg).assoc(ctx)
+
+def postfix_expr(ctx):
+    with ctx.ready_context():
+        arg = primary_expr(ctx)
+        if not arg:
+            raise ParseExpected(ctx, 'expression')
+
+        op = ctx.peek_token()
+        if op == Token('symbol', '('):
+            ctx.token()
+
+            if not isinstance(arg, VariableReference):
+                raise ParseExpected(ctx, 'module reference', arg)
+
+            args = []
+            end_bracket = ctx.peek_token()
+            if end_bracket == Token('symbol', ')'):
+                ctx.token()
+
+            else:
+                args = argument_list(ctx)
+
+                with ctx.ready_context():
+                    end_bracket = ctx.peek_token()
+                    if end_bracket != Token('symbol', ')'):
+                        raise ParseExpected(ctx, ')', end_bracket)
+
+                    ctx.token()
+
+            arg = ModuleReference(arg.name, args).assoc(ctx)
+
+    return arg
+
+def argument_list(ctx):
+    args = []
+    while True:
+        with ctx.ready_context():
+            arg = expression(ctx)
+            if not arg:
+                raise ParseExpected(ctx, 'expression')
+
+        args.append(arg)
+
+        op = ctx.peek_token()
+        if op == Token('symbol', ','):
+            ctx.token()
+            continue
+
+        else:
+            return args
 
 def primary_expr(ctx):
     res = ctx.token()
