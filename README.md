@@ -73,6 +73,11 @@ The basic units of syntax are as follows:
     number          : [digit]* ['.']? [digit]+
                     ;
 
+Comments are sections of text which are ignored when parsing the file and can be used to add inline documentation.
+
+    comment         : '#' (any character)* '\n'
+                    ;
+
 All programs start with a PROGRAM declaration, followed by a statment list:
 
     program         : program_decl begin_stmt [statement]* end_stmt
@@ -156,15 +161,21 @@ Iteration statements execute the same set of statements over and over conditiona
                     ;
 
 Jump statements change the control flow unconditionally and can be used to terminate iteration loops prematurely.
-_NOTE_: Not implemented yet.
 
     jump_stmt       : 'BREAK' | 'CONTINUE'
                     ;
 
 I/O statements are the methods of input and output that pseudo programs have available to them.
+An INPUT statement can also accept a type identifier, which tries to get an input from the user that always has the
+specified type.
 
-    io_stmt         : 'INPUT' identifier
+    io_stmt         : 'INPUT' type_spec? identifier
                     | 'OUTPUT' expression
+                    ;
+
+    type_spec       : 'NUMBER' | 'REAL' | 'FLOAT'
+                    | 'INT' | 'INTEGER'
+                    | 'STRING'
                     ;
 
 Expressions are very similar to those in C, including the same operators and identical order of operations.

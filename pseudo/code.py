@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .token import Token, PseudoRuntimeError, PseudoTypeError, PseudoBreak, PseudoContinue
+from .token import Token, PseudoRuntimeError, PseudoTypeError, PseudoBreak, PseudoContinue, PseudoReturn
 from .expr import Expression, VariableReference
 from .context import Context
 

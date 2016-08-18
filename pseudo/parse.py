@@ -218,12 +218,18 @@ def io_statement(ctx):
     if io_kw == Token('keyword', 'INPUT'):
         ctx.token()
 
+        type_ = Token('keyword', '')
+        type_kw = ctx.peek_token()
+        if type_kw.type == 'keyword':
+            type_ = type_kw
+            ctx.token()
+
         with ctx.ready_context():
             ref = expression(ctx)
             if not isinstance(ref, VariableReference):
                 raise ParseExpected(ctx, 'variable reference', ref)
 
-        return KeywordExpression(io_kw, ref).assoc(ctx)
+        return KeywordExpression(io_kw, type_, ref).assoc(ctx)
 
     elif io_kw.type == 'keyword' and io_kw.value in ('OUTPUT', 'PRINT'):
         ctx.token()

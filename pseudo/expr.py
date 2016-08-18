@@ -29,6 +29,9 @@ class Expression:
         elif isinstance(arg, Token) and arg.type in ('string', 'number'):
             arg = LiteralExpression(arg)
 
+        elif isinstance(arg, Token) and arg.type == 'keyword':
+            arg = KeywordReference(arg.value)
+
         elif not isinstance(arg, Expression):
             raise TypeError("Expression must contain either strings, numbers, identifiers or other expressions.")
 
@@ -48,6 +51,14 @@ class VariableReference(Expression):
 
     def set(self, ctx, value):
         ctx.set_var(self.name, value)
+
+class KeywordReference(Expression):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def eval(self, ctx):
+        raise PseudoNameError(self.context, "{} cannot be used as a variable reference".format(self.name))
 
 class LiteralExpression(Expression):
     def __init__(self, token):
@@ -75,7 +86,11 @@ class UnaryExpression(Expression):
         arg = Expression._get_arg(ctx, self.argument)
 
         if arg.type == op_type:
-            return Token(op_type, func(arg.value))
+            res = func(arg.value)
+            if isinstance(res, str):
+                return Token('string', res)
+            else:
+                return Token('number', res)
 
         return None
 
@@ -111,7 +126,11 @@ class BinaryExpression(Expression):
         arg2 = Expression._get_arg(ctx, self.argument2)
 
         if arg1.type == arg2.type == op_type:
-            return Token(op_type, func(arg1.value, arg2.value))
+            res = func(arg1.value, arg2.value)
+            if isinstance(res, str):
+                return Token('string', res)
+            else:
+                return Token('number', res)
 
         return None
 
@@ -131,10 +150,18 @@ class BinaryExpression(Expression):
             res = self._do_operation(ctx, 'number', lambda a,b: a * b)
 
         elif self.operation in DIV_OPERATORS:
-            res = self._do_operation(ctx, 'number', lambda a,b: a / b)
+            try:
+                res = self._do_operation(ctx, 'number', lambda a,b: a / b)
+            except ZeroDivisionError as e:
+                raise PseudoRuntimeError(self.context, 'Cannot divide by zero')
 
         elif self.operation in EQ_OPERATORS:
             res = self._do_operation(ctx, 'number', lambda a,b: int(a == b))
+            if not res: res = self._do_operation(ctx, 'string', lambda a,b: int(a == b))
+
+        elif self.operation in NEQ_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a != b))
+            if not res: res = self._do_operation(ctx, 'string', lambda a,b: int(a != b))
 
         elif self.operation in LT_OPERATORS:
             res = self._do_operation(ctx, 'number', lambda a,b: int(a < b))
@@ -170,16 +197,47 @@ class KeywordExpression(Expression):
             print("", end='\n')
 
         elif self.keyword == 'INPUT':
-            target = self.arguments[0]
+            type_ = None
+            type_kw = self.arguments[0]
+            target = self.arguments[1]
+
+            if isinstance(type_kw, KeywordReference):
+                if type_kw.name in ('NUMBER', 'INTEGER', 'INT', 'FLOAT', 'REAL', 'STRING'):
+                    type_ = type_kw.name
 
             if not isinstance(target, VariableReference):
                 raise PseudoTypeError(self.context, "Input target not a variable reference")
 
-            value = input("{}: ".format(target.name))
-            try:
-                value = Token('number', float(value))
-            except ValueError:
+            prompt = "{}{}: ".format(target.name,
+                    " ({})".format(type_.lower()) if type_ else "")
+
+            value = input(prompt)
+            if type_ in ('NUMBER', 'FLOAT', 'REAL'):
+                while True:
+                    try:
+                        value = Token('number', float(value))
+                        break
+                    except ValueError:
+                        print("Please enter a number.")
+                        value = input(prompt)
+
+            elif type_ in ('INTEGER', 'INT'):
+                while True:
+                    try:
+                        value = Token('number', int(value))
+                        break
+                    except ValueError:
+                        print("Please enter an integer.")
+                        value = input(prompt)
+
+            elif type_ in ('STRING',):
                 value = Token('string', value)
+
+            else:
+                try:
+                    value = Token('number', float(value))
+                except ValueError:
+                    value = Token('string', value)
 
             target.set(ctx, value)
 

@@ -12,6 +12,7 @@ ENDLINE_RE = re.compile(r'(;|\r?\n)')
 OPERATOR_RE = re.compile(r'(==|<-|<=|>=|!=|n?eq|and|or|[!+\-*/<>=])')
 NONE_RE = re.compile(r'\x00')
 ANY_RE = re.compile(r'[^\x00]*')
+COMMENT_RE = re.compile(r'#.*')
 
 NEG_OPERATORS = ('-',)
 PLUS_OPERATORS = ('+',)
@@ -40,7 +41,7 @@ OR_OPERATORS = ('||', 'or')
 
 ASSIGN_OPERATORS = (':=', '=', '<-')
 
-KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT", "BREAK", "CONTINUE", "RETURN", "RUN"
+KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "IF", "ELSE", "DO", "NEXT", "REPEAT", "OUTPUT", "INPUT", "PRINT", "BREAK", "CONTINUE", "RETURN", "RUN", "IS", "NOT", "INTEGER", "FLOAT", "REAL", "STRING", "INT", "NUMBER"
 
 class ParseError(Exception):
     def __init__(self, ctx, msg):
@@ -88,6 +89,14 @@ class PseudoReturn(PseudoFlowControl):
         self.value = ret
 
 Token = namedtuple('Token', "type, value")
+def keyword_eq(token1, token2):
+    if not isinstance(token1, Token) or not isinstance(token2, Token):
+        return False
+
+    if not (token1.type == token2.type == 'keyword'):
+        return token1 == token2
+
+    return token1.value.upper() == token2.value.upper()
 
 class Tokeniser:
     def __init__(self, name):
@@ -234,7 +243,10 @@ class Tokeniser:
         c = self.peek()
         while c:
 
-            if ENDLINE_RE.match(c):
+            if COMMENT_RE.match(c):
+                self.consume(while_re=COMMENT_RE)
+
+            elif ENDLINE_RE.match(c):
                 self.char()
                 #self.consume(while_re=ENDLINE_RE)
                 yield Token('eol', '')
