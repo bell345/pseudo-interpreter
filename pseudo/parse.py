@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from .token import *
-from .expr import UnaryExpression, BinaryExpression, KeywordExpression, VariableReference, ModuleReference
+from .expr import *
 from .code import *
 
 def skip_eol(ctx):
@@ -115,9 +115,9 @@ def statement(ctx, no_eol=False):
     if not res: res = iteration(ctx)
     if not res: res = jump(ctx)
     if not res: res = io_statement(ctx)
-    if not res: res = expression(ctx)
+    if not res: res = expr_stmt(ctx)
 
-    if no_eol:
+    if not no_eol:
         with ctx.ready_context():
             eol = ctx.token()
             if eol != Token('eol', ''):
@@ -129,6 +129,17 @@ def statement(ctx, no_eol=False):
                 #))
 
     return res
+
+def expr_stmt(ctx):
+    expr = expression(ctx)
+    if isinstance(expr, Expression):
+        return expr
+
+    elif isinstance(expr, Statement):
+        return expr
+
+    else:
+        return LiteralExpression(expr)
 
 def selection(ctx):
     if_kw = ctx.peek_token()
@@ -361,7 +372,7 @@ def primary_expr(ctx):
     res = ctx.token()
     #print("Got primary token: {}".format(res))
     if res.type in ('number', 'string'):
-        return res
+        return LiteralExpression(res).assoc(ctx)
 
     elif res.type == 'identifier':
         return VariableReference(res.value).assoc(ctx)

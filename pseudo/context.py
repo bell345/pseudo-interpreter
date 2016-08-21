@@ -63,28 +63,28 @@ class Context:
     def get_var(self, name):
         return self.variables.get(name)
 
-    def set_var(self, name, value):
+    def set_var(self, name, value, ctx=None):
         if name in DEFAULT_CONSTANTS:
-            raise PseudoRuntimeError(None, "Cannot reassign pre-defined variable {}".format(name))
+            raise PseudoRuntimeError(ctx, "Cannot reassign pre-defined variable {}".format(name))
 
         self.variables[name] = value
 
     def get_module(self, name):
         return self.modules.get(name)
 
-    def def_module(self, name, mod):
+    def def_module(self, name, mod, ctx=None):
         if name not in self.modules:
             self.modules[name] = mod
 
         else:
-            raise PseudoRuntimeError(None, "Module {} already defined".format(name))
+            raise PseudoRuntimeError(ctx, "Module {} already defined".format(name))
 
     def get_program(self, name):
         return self.programs.get(name)
 
-    def def_program(self, name, prog):
+    def def_program(self, name, prog, ctx=None):
         if name not in self.programs:
             self.programs[name] = prog
 
         else:
-            raise PseudoRuntimeError(None, "Program {} already defined".format(name))
+            raise PseudoRuntimeError(ctx, "Program {} already defined".format(name))

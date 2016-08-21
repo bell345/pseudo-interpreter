@@ -169,13 +169,15 @@ class PseudoModule(Statement):
         raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
 
     def call(self, ctx, args):
+        args = [Expression._get_arg(ctx, Expression._normalise_arg(arg)) for arg in args]
+
         ctx = ctx.child_context()
         if len(args) != len(self.params):
             raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
                     len(self.params), len(args)))
 
         for name, value in zip(self.params, args):
-            ctx.set_var(name, value)
+            ctx.set_var(name, value, self.context)
 
         res = Token('symbol', None)
         try:
@@ -206,6 +208,8 @@ class PseudoBinding(Statement):
         raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
 
     def call(self, ctx, args):
+        args = [Expression._get_arg(ctx, Expression._normalise_arg(arg)).value for arg in args]
+
         ctx = ctx.child_context()
         if len(args) != len(self.params):
             raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
@@ -213,7 +217,7 @@ class PseudoBinding(Statement):
 
         res = Token('symbol', None)
         try:
-            res = self.func(*[Expression._get_arg(arg) for arg in args])
+            res = self.func(*args)
             if isinstance(res, int) or isinstance(res, float):
                 res = Token('number', res)
             elif res is None:
@@ -224,4 +228,5 @@ class PseudoBinding(Statement):
             return res
 
         except Exception as e:
+            traceback.print_exc()
             raise PseudoRuntimeError(self.context, "Exception in bound module '{}'".format(self.name)) from e

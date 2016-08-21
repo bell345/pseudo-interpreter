@@ -1,8 +1,9 @@
 # pseudo-interpreter
 
 An interpreter for simple PASCAL-like pseudo code.
-The pseudo language has been defined to be both easy to learn and its syntax very forgiving for newcomers.
-That being said, this interpreter does not do anything that the programmer does not intend, like implicit casting.
+The pseudo language has been defined to be both easy to learn and its syntax
+very forgiving for newcomers. That being said, this interpreter does not do
+anything that the programmer does not intend, like implicit casting.
 
 ## Features
 
@@ -17,15 +18,19 @@ From the repository root, run:
 
     python3 -m pseudo [file_name]
 
-If run without a file name, you will be introduced into an interactive shell where you can directly input programs.
+If run without a file name, you will be introduced into an interactive shell
+where you can directly input programs.
 
 ## Syntax
 
-_NOTE_: Only basic expressions, selections and iterations have been implemented. Further changes could be implemented at any time.
+_NOTE_: Further changes could be implemented at any time.
 
 ### Notes on the Meta-Syntax Notation
 
-I originally attempted to mimic [Backus-Naur Form](https://en.wikipedia.org/wiki/Backus-Naur_Form), while at the same time extending some functionality.
+I originally attempted to mimic
+[Backus-Naur Form](https://en.wikipedia.org/wiki/Backus-Naur_Form),
+while at the same time extending some functionality.
+
 A reference:
 
     > xyz <         = the character/sequence 'xyz'
@@ -35,7 +40,9 @@ A reference:
     ['a' - 'z']     = any character between 'a' and 'z', including 'a' and 'z'
     [statement]*    = statement 0, 1 or more times
     [statement]+    = statement at least once
-    statement?      = optional statement
+    [statement]?    = optional statement
+
+### Syntax Units
 
 The basic units of syntax are as follows:
 
@@ -73,10 +80,15 @@ The basic units of syntax are as follows:
     number          : [digit]* ['.']? [digit]+
                     ;
 
-Comments are sections of text which are ignored when parsing the file and can be used to add inline documentation.
+### Comments
+
+Comments are sections of text which are ignored when parsing the file and can
+be used to add inline documentation.
 
     comment         : '#' (any character)* '\n'
                     ;
+
+### Programs
 
 All programs start with a PROGRAM declaration, followed by a statment list:
 
@@ -98,26 +110,57 @@ All programs start with a PROGRAM declaration, followed by a statment list:
                     | 'END' identifier stmt_end
                     ;
 
-Modules are reusable blocks of code that can return different values based upon a set of parameters.
-_NOTE_: Modules cannot yet be called.
+Programs are run in the REPL using RUN statements with the program name. In a
+code file, if there is only one program present, that program will be run. If
+there are multiple programs, the one named 'main' will be called. If there is
+no program named 'main', an interactive prompt will ask you to specify which
+program is to be run.
+
+    run_stmt        : 'RUN' identifier stmt_end
+                    ;
+
+### Modules
+
+Modules are reusable blocks of code that can return different values based upon
+a set of parameters. Calling modules works similarly to C. Modules occupy a
+different namespace than programs, so a module can be named the same as a
+program.
+
+To cast strings to numbers and numbers to strings, the modules `to_str` and
+`to_num` are provided.
 
     module          : module_decl [param_decl]* begin_stmt [statement]* end_stmt
+                    ;
+
+    module_decl     : 'MODULE' identifier stmt_end
                     ;
 
     param_decl      : 'PARAM' identifier stmt_end
                     ;
 
-Statments can be either assignment, selection, iteration, jump or I/O statments:
+    module_call     : identifier '(' argument_list ')'
+                    | identifier '()'
+                    ;
+
+    argument_list   :
+
+### Statements
+
+Statments can be either assignment, selection, iteration, jump or I/O
+statments, or an expression such as a module call:
 
     statement       : assignment_stmt stmt_end
                     | selection_stmt stmt_end
                     | iteration_stmt stmt_end
                     | jump_stmt stmt_end
                     | io_stmt stmt_end
+                    | expression stmt_end
                     ;
 
-Assignment statements assign a value to a variable.
-If a variable is referenced without being assigned a value, an error will be raised.
+### Assignment Statements
+
+Assignment statements assign a value to a variable. If a variable is referenced
+without being assigned a value, an error will be raised.
 
     assigment_stmt  : identifier assignment_op expression
                     ;
@@ -127,32 +170,39 @@ If a variable is referenced without being assigned a value, an error will be rai
                     | '='
                     ;
 
-Selection statements conditionally execute other statements based upon a expression.
+### Selection Statements
+
+Selection statements conditionally execute other statements based upon an
+expression.
 
     selection_stmt  : if_stmt [statement]* end_stmt
-                    | if_stmt [statement]* else_stmt [statement]* end_stmt
+                    | if_stmt [statement]* else_block end_stmt
                     ;
 
-    if_stmt         : 'IF' expression then_kw? stmt_end
+    if_stmt         : 'IF' expression [then_kw]? stmt_end
                     ;
 
-    else_stmt       : 'ELSE' stmt_end
+    else_block      : 'ELSE' stmt_end [statement]*
+                    | 'ELSE' if_stmt [statement]* [else_block]?
                     ;
 
     then_kw         : 'THEN'
                     | 'DO'
                     ;
 
-Iteration statements execute the same set of statements over and over conditionally or for a certain number of times.
+### Iteration Statements
+
+Iteration statements execute the same set of statements over and over
+conditionally or for a certain number of times.
 
     iteration_stmt  : while_stmt [statement]* repeat_stmt
                     | for_stmt [statement]* repeat_stmt
                     ;
 
-    while_stmt      : 'WHILE' expression then_kw? stmt_end
+    while_stmt      : 'WHILE' expression [then_kw]? stmt_end
                     ;
 
-    for_stmt        : 'FOR' assignent_stmt 'TO' expression then_kw? stmt_end
+    for_stmt        : 'FOR' assignent_stmt 'TO' expression [then_kw]? stmt_end
                     ;
 
     repeat_stmt     : 'REPEAT' stmt_end
@@ -160,16 +210,23 @@ Iteration statements execute the same set of statements over and over conditiona
                     | end_stmt
                     ;
 
-Jump statements change the control flow unconditionally and can be used to terminate iteration loops prematurely.
+### Jump Statements
 
-    jump_stmt       : 'BREAK' | 'CONTINUE'
+Jump statements change the control flow unconditionally and can be used to
+terminate iteration loops prematurely or return values from modules.
+
+    jump_stmt       : 'BREAK' stmt_end
+                    | 'CONTINUE' stmt_end
+                    | 'RETURN' expression stmt_end
                     ;
 
-I/O statements are the methods of input and output that pseudo programs have available to them.
-An INPUT statement can also accept a type identifier, which tries to get an input from the user that always has the
-specified type.
+### I/O Statements
 
-    io_stmt         : 'INPUT' type_spec? identifier
+I/O statements are the methods of input and output that pseudo programs have
+available to them. An INPUT statement can also accept a type identifier, which
+tries to get an input from the user that always has the specified type.
+
+    io_stmt         : 'INPUT' [type_spec]? identifier
                     | 'OUTPUT' expression
                     ;
 
@@ -178,11 +235,16 @@ specified type.
                     | 'STRING'
                     ;
 
-Expressions are very similar to those in C, including the same operators and identical order of operations.
-I've decided not to recreate the C syntax here, as it's (mostly) intutive and similar to how ordinary math works.
-There are a few differences:
+### Expressions
 
+Expressions are very similar to those in C, including the same operators and
+identical order of operations. I've decided not to recreate the C syntax here,
+as it's (mostly) intutive and similar to how ordinary math works. There are a
+few differences:
+
+* Assignments cannot be present in expressions.
 * Ternary operators have not been implemented.
+* The comma operator has not been implemented.
 * There are various synonyms for the operators, including text keywords:
     * `equality_op      : '=' | '==' | 'eq' ;`
     * `non_equality_op  : '!=' | 'neq' ;`
@@ -193,32 +255,16 @@ There are a few differences:
     * `logical_and_op   : '&&' | 'and' ;`
     * `logical_or_op    : '||' | 'or' ;`
     * `unary_not_op     : '!' | 'not' ;`
-* Assignments cannot be present in expressions.
-* The comma operator has not been implemented.
 
-## Basic Examples
+## Examples
 
-Print the maximum of 3 input numbers:
-
-    PROGRAM PrintBiggestNumber
-    BEGIN
-        entered_number <- 0
-        biggest_number <- 0
-        FOR count = 1 TO 3
-            INPUT entered_number
-            IF entered_number > biggest_number THEN
-                biggest_number = entered_number
-            END IF
-        NEXT
-        OUTPUT biggest_number
-    END
+Examples of (hopefully) valid pseudo-code programs that can be ran with the
+interpreter are in the `test/` directory.
 
 ## Planned Improvements
 
-* Casting numbers to strings and vice versa
 * More iteration types (test-last)
-* Function support
-* Module/import support
+* Import support
 
 (C) Thomas Bell 2016, MIT License.
 

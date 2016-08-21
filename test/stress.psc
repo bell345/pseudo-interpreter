@@ -13,6 +13,7 @@ BEGIN
     END IF
 
     OUTPUT('what\'s this?')
+    OUTPUT(to_str(y)+'abc')
 
     y <- x + y
 

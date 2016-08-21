@@ -50,7 +50,7 @@ class VariableReference(Expression):
         return res
 
     def set(self, ctx, value):
-        ctx.set_var(self.name, value)
+        ctx.set_var(self.name, value, self.context)
 
 class ModuleReference(Expression):
     def __init__(self, name, args):
