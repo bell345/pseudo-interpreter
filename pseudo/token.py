@@ -45,7 +45,7 @@ KEYWORDS = "BEGIN", "END", "FOR", "TO", "WHILE", "THEN", "MODULE", "PROGRAM", "I
 
 class ParseError(Exception):
     def __init__(self, ctx, msg):
-        msg = ctx.get_context() + msg
+        msg = ctx.get_context()[0] + msg
         super().__init__(msg)
 
 class ParseExpected(ParseError):
@@ -129,7 +129,7 @@ class Tokeniser:
         idx = len(self._ready_ctx)
         self._ready_ctx.append(ctx)
 
-        yield
+        yield ctx
 
         while len(self._ready_ctx) > idx:
             self._ready_ctx.pop()
@@ -159,7 +159,7 @@ class Tokeniser:
         ctx += "File {}, line {}, column {}: \n".format(self.name, row, col)
         ctx += self.lines[row-1] + "\n"
         ctx += "{}^\n".format(' ' * (col-1))
-        return ctx
+        return ctx, (row, col)
 
     def peek(self):
         if self._peek is not None:

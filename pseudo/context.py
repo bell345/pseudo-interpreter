@@ -54,7 +54,7 @@ class Context:
 
         self.programs = {}
 
-    def child_context(self):
+    def child_context(self, name=None):
         new_ctx = Context()
         new_ctx.modules = self.modules
         new_ctx.programs = self.programs
@@ -63,7 +63,7 @@ class Context:
     def get_var(self, name):
         return self.variables.get(name)
 
-    def set_var(self, name, value, ctx=None):
+    def set_var(self, name, value, ctx=None, pos=None):
         if name in DEFAULT_CONSTANTS:
             raise PseudoRuntimeError(ctx, "Cannot reassign pre-defined variable {}".format(name))
 
@@ -72,7 +72,7 @@ class Context:
     def get_module(self, name):
         return self.modules.get(name)
 
-    def def_module(self, name, mod, ctx=None):
+    def def_module(self, name, mod, ctx=None, pos=None):
         if name not in self.modules:
             self.modules[name] = mod
 
@@ -82,9 +82,62 @@ class Context:
     def get_program(self, name):
         return self.programs.get(name)
 
-    def def_program(self, name, prog, ctx=None):
+    def def_program(self, name, prog, ctx=None, pos=None):
         if name not in self.programs:
             self.programs[name] = prog
 
         else:
             raise PseudoRuntimeError(ctx, "Program {} already defined".format(name))
+
+class TraceContext(Context):
+    def __init__(self, name=None):
+        super().__init__()
+        self.assignments = []
+        self.children = []
+        self.name = name
+
+    def child_context(self, name):
+        new_ctx = TraceContext(name)
+        new_ctx.programs = self.programs
+        new_ctx.modules = self.modules
+        self.children.append(new_ctx)
+        return new_ctx
+
+    def set_var(self, name, value, ctx=None, pos=None):
+        super().set_var(name, value, ctx, pos)
+
+        self.assignments.append((pos, name, value))
+
+    def get_trace(self):
+
+        from tabulate import tabulate
+
+        res = ""
+        if self.name:
+            res += self.name + '\n'
+
+        if self.assignments:
+            vars = []
+            for pos, name, value in self.assignments:
+                if name not in vars:
+                    vars.append(name)
+
+            lines = []
+            for pos, name, value in self.assignments:
+                line = []
+                row, col = pos
+                line.append(row)
+                for v in vars:
+                    if v == name:
+                        line.append(value.value)
+                    else:
+                        line.append(' ')
+
+                lines.append(line)
+
+            res += tabulate(lines, headers=(["Line"] + vars)) + '\n\n'
+
+        for child in self.children:
+            res += child.get_trace()
+
+        return res

@@ -7,37 +7,30 @@ from .version import APP_NAME, APP_VERSION
 from .token import Token, FileTokeniser, REPLTokeniser, ParseError, PseudoRuntimeError
 from .code import PseudoModule, PseudoProgram
 from .parse import pseudo_code_element
-from .context import Context
+from .context import Context, TraceContext
 
-source = """
-PROGRAM rectangle_area_and_perimeter
-BEGIN
-    max <- -INF
-    FOR n <- 1 TO 3
-        INPUT (new_num)
-        IF (new_num > max) THEN
-            max <- new_num
-        END IF
-    NEXT
-    OUTPUT (max)
-END
-"""
+def parse(parse_ctx, trace=False):
+    if trace:
+        global_ctx = TraceContext()
+    else:
+        global_ctx = Context()
 
-def parse(parse_ctx):
-    global_ctx = Context()
     while True:
         try:
-            el = pseudo_code_element(parse_ctx)
-            if isinstance(el, PseudoModule):
-                global_ctx.def_module(el.name, el)
+            with parse_ctx.ready_context():
+                el = pseudo_code_element(parse_ctx)
+                if isinstance(el, PseudoModule):
+                    ctx, rc = parse_ctx.get_context()
+                    global_ctx.def_module(el.name, el, ctx, rc)
 
-            elif isinstance(el, PseudoProgram):
-                global_ctx.def_program(el.name, el)
+                elif isinstance(el, PseudoProgram):
+                    ctx, rc = parse_ctx.get_context()
+                    global_ctx.def_program(el.name, el, ctx, rc)
 
-            else:
-                res = el.eval(global_ctx)
-                if res is not None and res != Token('symbol', None):
-                    print(res.value)
+                else:
+                    res = el.eval(global_ctx)
+                    if res is not None and res != Token('symbol', None):
+                        print(res.value)
 
         except KeyboardInterrupt as e:
             if parse_ctx.level > 1:
@@ -61,8 +54,9 @@ def parse(parse_ctx):
 
     return global_ctx
 
-def parse_file(fp):
-    ctx = parse(FileTokeniser(fp))
+def parse_file(fp, trace_fp):
+    ctx = parse(FileTokeniser(fp), bool(trace_fp))
+
     if len(ctx.programs) == 0:
         return
 
@@ -103,6 +97,9 @@ def parse_file(fp):
                 prog = ctx.get_program(name)
                 if prog: prog.eval(ctx)
 
+    if trace_fp:
+        trace_fp.write(ctx.get_trace())
+
 def repl():
     print("{} version {}".format(APP_NAME, APP_VERSION))
     print("(C) Thomas Bell 2016, MIT License.")
@@ -120,10 +117,13 @@ def main():
     parser.add_argument("input_file", type=argparse.FileType('r'), nargs="?",
             help="Input source file to be interpreted.")
 
+    parser.add_argument("-t", "--trace", type=argparse.FileType('w'),
+            help="Write a trace table to the given file.")
+
     args = parser.parse_args()
 
     if args.input_file:
-        parse_file(args.input_file)
+        parse_file(args.input_file, args.trace)
 
     else:
         repl()

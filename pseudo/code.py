@@ -12,7 +12,7 @@ class Statement:
         self.context = None
 
     def assoc(self, ctx):
-        self.context = ctx.get_context()
+        self.context, self.row_col = ctx.get_context()
         return self
 
 class AssignmentStatement(Statement):
@@ -139,8 +139,14 @@ class PseudoProgram(Statement):
         self.name = prog_name
         self.stmt_list = stmt_list
 
-    def eval(self, ctx):
-        ctx = ctx.child_context()
+    def eval(self, ctx, pos=None):
+
+        name = "PROGRAM {}".format(self.name)
+        if pos:
+            row, col = pos
+            name += ", called at line {}".format(row)
+
+        ctx = ctx.child_context(name)
 
         res = Token('symbol', None)
         try:
@@ -168,16 +174,21 @@ class PseudoModule(Statement):
     def eval(self, ctx):
         raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
 
-    def call(self, ctx, args):
+    def call(self, ctx, args, pos=None):
         args = [Expression._get_arg(ctx, Expression._normalise_arg(arg)) for arg in args]
 
-        ctx = ctx.child_context()
+        name = "MODULE {}".format(self.name)
+        if pos:
+            row, col = pos
+            name += ", called at line {}".format(row)
+
+        ctx = ctx.child_context(name)
         if len(args) != len(self.params):
             raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
                     len(self.params), len(args)))
 
         for name, value in zip(self.params, args):
-            ctx.set_var(name, value, self.context)
+            ctx.set_var(name, value, self.context, self.row_col)
 
         res = Token('symbol', None)
         try:
@@ -210,7 +221,6 @@ class PseudoBinding(Statement):
     def call(self, ctx, args):
         args = [Expression._get_arg(ctx, Expression._normalise_arg(arg)).value for arg in args]
 
-        ctx = ctx.child_context()
         if len(args) != len(self.params):
             raise PseudoRuntimeError(self.context, "Module takes {} argument(s) ({} given)".format(
                     len(self.params), len(args)))

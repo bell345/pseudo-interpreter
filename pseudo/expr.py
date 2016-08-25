@@ -7,7 +7,7 @@ class Expression:
         self.context = None
 
     def assoc(self, ctx):
-        self.context = ctx.get_context()
+        self.context, self.row_col = ctx.get_context()
         return self
 
     @staticmethod
@@ -50,7 +50,7 @@ class VariableReference(Expression):
         return res
 
     def set(self, ctx, value):
-        ctx.set_var(self.name, value, self.context)
+        ctx.set_var(self.name, value, self.context, self.row_col)
 
 class ModuleReference(Expression):
     def __init__(self, name, args):
@@ -63,7 +63,7 @@ class ModuleReference(Expression):
         if res is None:
             raise PseudoNameError(self.context, "Module {} is undefined or is not a module".format(self.name))
 
-        return res.call(ctx, self.args)
+        return res.call(ctx, self.args, self.row_col)
 
 class KeywordReference(Expression):
     def __init__(self, name):
