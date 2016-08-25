@@ -89,10 +89,13 @@ class Context:
         else:
             raise PseudoRuntimeError(ctx, "Program {} already defined".format(name))
 
+    def trace_conditional(self, cond, value):
+        pass
+
 class TraceContext(Context):
     def __init__(self, name=None):
         super().__init__()
-        self.assignments = []
+        self.traces = []
         self.children = []
         self.name = name
 
@@ -106,7 +109,15 @@ class TraceContext(Context):
     def set_var(self, name, value, ctx=None, pos=None):
         super().set_var(name, value, ctx, pos)
 
-        self.assignments.append((pos, name, value))
+        self.traces.append((pos, name, value))
+
+    def trace_conditional(self, cond, value, pos=None):
+        if value.value:
+            value = Token('symbol', 'true')
+        else:
+            value = Token('symbol', 'false')
+
+        self.traces.append((pos, str(cond), value))
 
     def get_trace(self):
 
@@ -116,14 +127,14 @@ class TraceContext(Context):
         if self.name:
             res += self.name + '\n'
 
-        if self.assignments:
+        if self.traces:
             vars = []
-            for pos, name, value in self.assignments:
+            for pos, name, value in self.traces:
                 if name not in vars:
                     vars.append(name)
 
             lines = []
-            for pos, name, value in self.assignments:
+            for pos, name, value in self.traces:
                 line = []
                 row, col = pos
                 line.append(row)

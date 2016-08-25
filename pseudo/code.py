@@ -49,6 +49,8 @@ class IfStatement(Statement):
         if value.type != 'number':
             raise PseudoTypeError("Condition must be numerical or boolean")
 
+        ctx.trace_conditional(self.condition, value, self.row_col)
+
         if value.value:
             for expr in self.then_stmt_list:
                 res = expr.eval(ctx)

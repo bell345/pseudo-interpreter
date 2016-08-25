@@ -52,6 +52,9 @@ class VariableReference(Expression):
     def set(self, ctx, value):
         ctx.set_var(self.name, value, self.context, self.row_col)
 
+    def __str__(self):
+        return self.name
+
 class ModuleReference(Expression):
     def __init__(self, name, args):
         super().__init__()
@@ -65,6 +68,9 @@ class ModuleReference(Expression):
 
         return res.call(ctx, self.args, self.row_col)
 
+    def __str__(self):
+        return "{}({})".format(self.name, ", ".join(map(str, self.args)))
+
 class KeywordReference(Expression):
     def __init__(self, name):
         super().__init__()
@@ -72,6 +78,9 @@ class KeywordReference(Expression):
 
     def eval(self, ctx):
         raise PseudoNameError(self.context, "{} cannot be used as a variable reference".format(self.name))
+
+    def __str__(self):
+        return self.name.upper()
 
 class LiteralExpression(Expression):
     def __init__(self, token):
@@ -87,6 +96,13 @@ class LiteralExpression(Expression):
 
     def eval(self, ctx):
         return self.token
+
+    def __str__(self):
+        if self.token.type == 'string':
+            return '"{}"'.format(self.token.value)
+
+        else:
+            return str(self.token.value)
 
 class UnaryExpression(Expression):
     def __init__(self, op, arg):
@@ -125,6 +141,9 @@ class UnaryExpression(Expression):
             raise PseudoTypeError(self.context, "{}({}) not supported".format(self.operation, arg_type))
 
         return res
+
+    def __str__(self):
+        return "{}{}".format(str(self.operation), str(self.argument))
 
 class BinaryExpression(Expression):
     def __init__(self, op, arg1, arg2):
@@ -201,6 +220,9 @@ class BinaryExpression(Expression):
 
         return res
 
+    def __str__(self):
+        return "{} {} {}".format(str(self.argument1), self.operation, str(self.argument2))
+
 
 class KeywordExpression(Expression):
     def __init__(self, keyword, *args):
@@ -275,5 +297,8 @@ class KeywordExpression(Expression):
             res = value
 
         return res
+
+    def __str__(self):
+        return "{} {}".format(self.keyword, map(str, self.arguments))
 
             
