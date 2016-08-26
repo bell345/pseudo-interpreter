@@ -220,7 +220,7 @@ class PseudoBinding(Statement):
     def eval(self, ctx):
         raise PseudoRuntimeError(self.context, "Modules cannot be called like programs")
 
-    def call(self, ctx, args):
+    def call(self, ctx, args, pos=None):
         args = [Expression._get_arg(ctx, Expression._normalise_arg(arg)).value for arg in args]
 
         if len(args) != len(self.params):

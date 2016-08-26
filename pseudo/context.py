@@ -89,7 +89,7 @@ class Context:
         else:
             raise PseudoRuntimeError(ctx, "Program {} already defined".format(name))
 
-    def trace_conditional(self, cond, value):
+    def trace_conditional(self, cond, value, pos=None):
         pass
 
 class TraceContext(Context):
