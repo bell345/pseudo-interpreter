@@ -211,6 +211,21 @@ class BinaryExpression(Expression):
 
         elif self.operation in GE_OPERATORS:
             res = self._do_operation(ctx, 'number', lambda a,b: int(a >= b))
+            
+        elif self.operation in AND_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a and b))
+            
+        elif self.operation in OR_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a or b))
+            
+        elif self.operation in BINARY_AND_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a & b))
+            
+        elif self.operation in BINARY_OR_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a | b))
+            
+        elif self.operation in BINARY_XOR_OPERATORS:
+            res = self._do_operation(ctx, 'number', lambda a,b: int(a ^ b))
 
         if res is None:
             arg1_type = Expression._get_arg(ctx, self.argument1).type

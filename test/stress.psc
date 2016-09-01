@@ -11,6 +11,10 @@ BEGIN
     else
         OUTPUT 'nzero'
     END IF
+    
+    IF (z == 24) and (y == 3) or (x < z) THEN
+        OUTPUT (y < x)
+    END IF
 
     OUTPUT('what\'s this?')
     OUTPUT(to_str(y)+'abc')
