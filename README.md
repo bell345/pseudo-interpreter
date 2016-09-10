@@ -12,11 +12,21 @@ anything that the programmer does not intend, like implicit casting.
 * Error handling and reporting
 * Designed to complement educational materials
 
-## Usage
+## Installation
 
 From the repository root, run:
 
-    python3 -m pseudo [file_name]
+    pip3 install .
+
+or the following to install as a user package (making sure to add ~/.local/bin/ to your $PATH):
+
+    pip install . --user
+
+## Usage
+
+Syntax:
+
+    pseudo [file_name] [--trace output_trace.txt]
 
 If run without a file name, you will be introduced into an interactive shell
 where you can directly input programs.
@@ -268,4 +278,3 @@ interpreter are in the `test/` directory.
 
 (C) Thomas Bell 2016, MIT License.
 
-    
