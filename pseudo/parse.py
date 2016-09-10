@@ -108,8 +108,6 @@ def statement_list(ctx, end_kw='END', consume_end=True):
     return statements
 
 def statement(ctx, no_eol=False):
-    skip_eol(ctx)
-
     res = assignment_stmt(ctx)
     if not res: res = selection(ctx)
     if not res: res = iteration(ctx)
@@ -122,11 +120,6 @@ def statement(ctx, no_eol=False):
             eol = ctx.token()
             if eol != Token('eol', ''):
                 raise ParseExpected(ctx, 'end of statement', eol)
-            else:
-                pass
-                #print("A statement has been born: {}".format(
-                #    type(res).__name__
-                #))
 
     return res
 
@@ -139,7 +132,7 @@ def expr_stmt(ctx):
         return expr
 
     else:
-        return LiteralExpression(expr)
+        return LiteralExpression(expr).assoc(ctx)
 
 def selection(ctx):
     if_kw = ctx.peek_token()
@@ -224,12 +217,12 @@ def jump(ctx):
     if jump_kw == Token('keyword', 'BREAK'):
         ctx.token()
 
-        return BreakStatement()
+        return BreakStatement().assoc(ctx)
 
     elif jump_kw == Token('keyword', 'CONTINUE'):
         ctx.token()
 
-        return ContinueStatement()
+        return ContinueStatement().assoc(ctx)
 
     elif jump_kw == Token('keyword', 'RETURN'):
         ctx.token()
@@ -239,7 +232,7 @@ def jump(ctx):
             if not ret:
                 raise ParseExpected(ctx, 'expression')
 
-        return ReturnStatement(ret)
+        return ReturnStatement(ret).assoc(ctx)
 
 def io_statement(ctx):
     io_kw = ctx.peek_token()

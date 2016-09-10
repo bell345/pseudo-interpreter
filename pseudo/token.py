@@ -111,6 +111,7 @@ class Tokeniser:
         self.tokeniser = iter(self)
         self._peek = None
         self._peek_token = None
+        self._peek_token_row_col = None
         self._ready_ctx = []
 
     @contextmanager
@@ -124,7 +125,7 @@ class Tokeniser:
     @contextmanager
     def ready_context(self, ctx=None):
         if not ctx:
-            ctx = self.row, self.col
+            ctx = self.raw_context()
 
         idx = len(self._ready_ctx)
         self._ready_ctx.append(ctx)
@@ -135,6 +136,9 @@ class Tokeniser:
             self._ready_ctx.pop()
 
     def raw_context(self):
+        if self._peek_token_row_col is not None:
+            return self._peek_token_row_col
+
         return self.row, self.col
 
     def get_context(self):
@@ -143,8 +147,7 @@ class Tokeniser:
         if len(self._ready_ctx) > 0:
             row, col = self._ready_ctx.pop()
         else:
-            row = self.row
-            col = self.col
+            row, col = self.raw_context()
 
         if row > len(self.lines):
             row = row-1
@@ -280,6 +283,7 @@ class Tokeniser:
             if self._peek_token is not None:
                 return self._peek_token
 
+            self._peek_token_row_col = self.raw_context()
             self._peek_token = next(self.tokeniser)
             #print("new token: {}, '{}'".format(self._peek_token.type, self._peek_token.value))
             return self._peek_token
@@ -291,7 +295,7 @@ class Tokeniser:
         try:
             if self._peek_token is not None:
                 token = self._peek_token
-                self._peek_token = None
+                self._peek_token = self._peek_token_row_col = None
                 return token
             else:
                 res = next(self.tokeniser)
